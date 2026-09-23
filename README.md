@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Komar Runner</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #111;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 15px 0 5px;
+        }
+
+        #game {
+            position: relative;
+            width: 700px;
+            max-width: 95%;
+            margin: auto;
+        }
+
+        canvas {
+            width: 100%;
+            background: skyblue;
+            border: 3px solid white;
+            border-radius: 10px;
+        }
+
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 12px 22px;
+            margin: 5px;
+            border: none;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border-radius: 15px;
+            width: 80%;
+        }
+
+        #gameOver h2 {
+            color: red;
+            font-size: 35px;
+        }
+
+        #controls {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🏃 KOMAR RUNNER</h1>
+
+<div id="game">
+
+    <div id="hud">
+        <div>Skor: <span id="score">0</span></div>
+        <div>🪙 Koin: <span id="coins">0</span></div>
+    </div>
+
+    <canvas id="canvas" width="700" height="450"></canvas>
+
+    <div id="gameOver">
+
+        <h2>GAME OVER</h2>
+
+        <p>Skor: <span id="finalScore">0</span></p>
+
+        <p>Koin: <span id="finalCoins">0</span></p>
+
+        <button onclick="restartGame()">
+            🔄 MAIN LAGI
+        </button>
+
+    </div>
+
+</div>
+
+<div id="controls">
+
+    <button onclick="moveLeft()">⬅️</button>
+
+    <button onclick="jump()">⬆️</button>
+
+    <button onclick="moveRight()">➡️</button>
+
+</div>
+
+<p>
+    Gunakan tombol ← → untuk bergerak dan ↑ untuk melompat
+</p>
+
+
+<script>
+
+const canvas = document.getElementById("canvas");
+
+const ctx = canvas.getContext("2d");
+
+
+/* =========================
+   DATA GAME
+========================= */
+
+let player;
+
+let obstacles;
+
+let coins;
+
+let score;
+
+let coinCount;
+
+let gameRunning;
+
+let speed;
+
+let spawnTimer;
+
+
+/* =========================
+   PLAYER
+========================= */
+
+function createPlayer() {
+
+    return {
+
+        lane: 1,
+
+        x: 350,
+
+        y: 350,
+
+        width: 45,
+
+        height: 65,
+
+        jumpPower: 0,
+
+        jumping: false
+
+    };
+
+}
+
+
+/* =========================
+   MULAI GAME
+========================= */
+
+function startGame() {
+
+    player = createPlayer();
+
+    obstacles = [];
+
+    coins = [];
+
+    score = 0;
+
+    coinCount = 0;
+
+    speed = 5;
+
+    spawnTimer = 0;
+
+    gameRunning = true;
+
+    document.getElementById("gameOver").style.display = "none";
+
+    gameLoop();
+
+}
+
+
+/* =========================
+   JALUR
+========================= */
+
+function getLaneX(lane) {
+
+    if (lane === 0) return 230;
+
+    if (lane === 1) return 350;
+
+    return 470;
+
+}
+
+
+/* =========================
+   PINDAH KIRI
+========================= */
+
+function moveLeft() {
+
+    if (!gameRunning) return;
+
+    if (player.lane > 0) {
+
+        player.lane--;
+
+    }
+
+}
+
+
+/* =========================
+   PINDAH KANAN
+========================= */
+
+function moveRight() {
+
+    if (!gameRunning) return;
+
+    if (player.lane < 2) {
+
+        player.lane++;
+
+    }
+
+}
+
+
+/* =========================
+   LOMPAT
+========================= */
+
+function jump() {
+
+    if (!gameRunning) return;
+
+    if (!player.jumping) {
+
+        player.jumping = true;
+
+        player.jumpPower = 15;
+
+    }
+
+}
+
+
+/* =========================
+   KEYBOARD
+========================= */
+
+document.addEventListener("keydown", function(event) {
+
+    if (event.key === "ArrowLeft") {
+
+        moveLeft();
+
+    }
+
+    if (event.key === "ArrowRight") {
+
+        moveRight();
+
+    }
+
+    if (event.key === "ArrowUp") {
+
+        jump();
+
+    }
+
+});
+
+
+/* =========================
+   BUAT RINTANGAN
+========================= */
+
+function createObstacle() {
+
+    let lane = Math.floor(Math.random() * 3);
+
+    obstacles.push({
+
+        lane: lane,
+
+        x: getLaneX(lane),
+
+        y: -50,
+
+        width: 55,
+
+        height: 55
+
+    });
+
+}
+
+
+/* =========================
+   BUAT KOIN
+========================= */
+
+function createCoin() {
+
+    let lane = Math.floor(Math.random() * 3);
+
+    coins.push({
+
+        lane: lane,
+
+        x: getLaneX(lane),
+
+        y: -30,
+
+        radius: 12
+
+    });
+
+}
+
+
+/* =========================
+   UPDATE GAME
+========================= */
+
+function update() {
+
+    score++;
+
+    speed += 0.002;
+
+    /* LOMPAT */
+
+    if (player.jumping) {
+
+        player.y -= player.jumpPower;
+
+        player.jumpPower -= 0.7;
+
+        if (player.y >= 350) {
+
+            player.y = 350;
+
+            player.jumping = false;
+
+            player.jumpPower = 0;
+
+        }
+
+    }
+
+
+    /* RINTANGAN */
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+
+        let obstacle = obstacles[i];
+
+        obstacle.y += speed;
+
+
+        /* TABRAKAN */
+
+        if (
+
+            obstacle.lane === player.lane &&
+
+            obstacle.y + obstacle.height > player.y &&
+
+            obstacle.y < player.y + player.height &&
+
+            !player.jumping
+
+        ) {
+
+            gameOver();
+
+        }
+
+
+        if (obstacle.y > canvas.height) {
+
+            obstacles.splice(i, 1);
+
+        }
+
+    }
+
+
+    /* KOIN */
+
+    for (let i = coins.length - 1; i >= 0; i--) {
+
+        let coin = coins[i];
+
+        coin.y += speed;
+
+
+        if (
+
+            coin.lane === player.lane &&
+
+            Math.abs(coin.y - player.y) < 60
+
+        ) {
+
+            coinCount++;
+
+            score += 100;
+
+            coins.splice(i, 1);
+
+        }
+
+
+        if (coin.y > canvas.height) {
+
+            coins.splice(i, 1);
+
+        }
+
+    }
+
+
+    /* SPAWN */
+
+    spawnTimer++;
+
+    if (spawnTimer > 70) {
+
+        createObstacle();
+
+        spawnTimer = 0;
+
+    }
+
+
+    if (Math.random() < 0.03) {
+
+        createCoin();
+
+    }
+
+
+    document.getElementById("score").innerText = score;
+
+    document.getElementById("coins").innerText = coinCount;
+
+}
+
+
+/* =========================
+   GAMBAR GAME
+========================= */
+
+function draw() {
+
+    /* LANGIT */
+
+    ctx.fillStyle = "#87CEEB";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    /* TANAH */
+
+    ctx.fillStyle = "#58a65c";
+
+    ctx.fillRect(
+        0,
+        250,
+        canvas.width,
+        200
+    );
+
+
+    /* JALAN */
+
+    ctx.fillStyle = "#444";
+
+    ctx.beginPath();
+
+    ctx.moveTo(200, 0);
+
+    ctx.lineTo(500, 0);
+
+    ctx.lineTo(650, 450);
+
+    ctx.lineTo(50, 450);
+
+    ctx.closePath();
+
+    ctx.fill();
+
+
+    /* GARIS JALUR */
+
+    ctx.strokeStyle = "white";
+
+    ctx.lineWidth = 4;
+
+    ctx.beginPath();
+
+    ctx.moveTo(300, 0);
+
+    ctx.lineTo(250, 450);
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(400, 0);
+
+    ctx.lineTo(450, 450);
+
+    ctx.stroke();
+
+
+    /* PLAYER */
+
+    player.x = getLaneX(player.lane);
+
+    ctx.fillStyle = "#1464d2";
+
+    ctx.fillRect(
+
+        player.x - player.width / 2,
+
+        player.y - player.height,
+
+        player.width,
+
+        player.height
+
+    );
+
+
+    /* KEPALA */
+
+    ctx.fillStyle = "#ffd0a0";
+
+    ctx.beginPath();
+
+    ctx.arc(
+
+        player.x,
+
+        player.y - player.height - 15,
+
+        17,
+
+        0,
+
+        Math.PI * 2
+
+    );
+
+    ctx.fill();
+
+
+    /* TOPI */
+
+    ctx.fillStyle = "#222";
+
+    ctx.fillRect(
+
+        player.x - 20,
+
+        player.y - player.height - 30,
+
+        40,
+
+        8
+
+    );
+
+
+    /* RINTANGAN */
+
+    for (let obstacle of obstacles) {
+
+        ctx.fillStyle = "#e53935";
+
+        ctx.fillRect(
+
+            obstacle.x - obstacle.width / 2,
+
+            obstacle.y,
+
+            obstacle.width,
+
+            obstacle.height
+
+        );
+
+    }
+
+
+    /* KOIN */
+
+    for (let coin of coins) {
+
+        ctx.fillStyle = "#FFD700";
+
+        ctx.beginPath();
+
+        ctx.arc(
+
+            coin.x,
+
+            coin.y,
+
+            coin.radius,
+
+            0,
+
+            Math.PI * 2
+
+        );
+
+        ctx.fill();
+
+    }
+
+}
+
+
+/* =========================
+   GAME LOOP
+========================= */
+
+function gameLoop() {
+
+    if (!gameRunning) return;
+
+    update();
+
+    draw();
+
+    requestAnimationFrame(gameLoop);
+
+}
+
+
+/* =========================
+   GAME OVER
+========================= */
+
+function gameOver() {
+
+    gameRunning = false;
+
+    document.getElementById("finalScore").innerText = score;
+
+    document.getElementById("finalCoins").innerText = coinCount;
+
+    document.getElementById("gameOver").style.display = "block";
+
+}
+
+
+/* =========================
+   RESTART
+========================= */
+
+function restartGame() {
+
+    startGame();
+
+}
+
+
+/* =========================
+   JALANKAN
+========================= */
+
+startGame();
+
+</script>
+
+</body>
+</html>
